@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fancy-pomodoro"
+version = "0.1.0"
+description = "A fancy CLI pomodoro timer with time tracking"
+requires-python = ">=3.11"
+dependencies = [
+    "rich>=13.7",
+    "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+pomo = "pomo.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pomo"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
