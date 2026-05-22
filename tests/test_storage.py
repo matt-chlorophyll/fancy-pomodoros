@@ -53,3 +53,10 @@ def test_save_backs_up_corrupt_file(tmp_path):
     assert backup.exists()
     assert backup.read_text(encoding="utf-8") == "{ corrupt"
     assert [s.task for s in load_sessions(path)] == ["new"]
+
+
+def test_load_unreadable_path_returns_empty(tmp_path):
+    # 会话路径意外是一个目录 -> 不应崩溃，返回空列表。
+    path = tmp_path / "sessions.json"
+    path.mkdir()
+    assert load_sessions(path) == []

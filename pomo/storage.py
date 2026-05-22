@@ -23,7 +23,7 @@ def load_sessions(path: Path) -> list[Session]:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
         return [Session.from_dict(item) for item in raw.get("sessions", [])]
-    except (json.JSONDecodeError, ValueError, KeyError, TypeError):
+    except (json.JSONDecodeError, ValueError, KeyError, TypeError, OSError):
         return []
 
 
@@ -31,6 +31,7 @@ def save_sessions(path: Path, sessions: list[Session]) -> None:
     """原子写入全部 session。若已存在的文件损坏，先备份为 .bak。"""
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists() and _is_corrupt(path):
+        # 仅保留最近一次损坏文件；已存在的 .bak 会被覆盖。
         path.replace(path.with_name(path.name + ".bak"))
     payload = {
         "version": SCHEMA_VERSION,
