@@ -54,3 +54,20 @@ def test_render_summary_shows_total_and_task():
     assert "写文档" in out
     assert "今日累计" in out
     assert "2:15" in out
+
+
+def test_render_focus_overtime_shows_plus_prefix_and_status():
+    clock = FixedClock(0.0)
+    timer = FocusTimer(target_seconds=1500, clock=clock)
+    clock.t = 1600.0  # 100 秒加时
+    out = _render(render_focus("工作", "写文档", timer, ENCOURAGEMENTS[0]))
+    assert "+ 0 1 : 4 0" in out
+    assert "加时中" in out
+
+
+def test_render_focus_paused_shows_pause_indicator():
+    clock = FixedClock(0.0)
+    timer = FocusTimer(target_seconds=1500, clock=clock)
+    timer.pause()
+    out = _render(render_focus("工作", "写文档", timer, ENCOURAGEMENTS[0]))
+    assert "已暂停" in out
