@@ -21,3 +21,8 @@ def test_normalize_letter_is_lowercased():
 
 def test_normalize_non_printable_returns_none():
     assert normalize_key("\x00") is None
+
+
+def test_normalize_digit_and_symbol():
+    assert normalize_key("5") == "5"
+    assert normalize_key("+") == "+"

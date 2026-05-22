@@ -4,8 +4,6 @@
 归一化逻辑 normalize_key 与平台无关。
 """
 
-import msvcrt
-
 KEY_SPACE = "space"
 KEY_ENTER = "enter"
 KEY_ESC = "esc"
@@ -29,6 +27,8 @@ def normalize_key(ch: str) -> str | None:
 
 def read_key() -> str | None:
     """非阻塞读取一个按键。无按键时返回 None。"""
+    import msvcrt
+
     if not msvcrt.kbhit():
         return None
     ch = msvcrt.getwch()
