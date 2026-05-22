@@ -16,7 +16,7 @@ dependencies = [
 dev = ["pytest>=8.0"]
 
 [project.scripts]
-pomo = "pomo.cli:app"
+pomo = "pomo.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["pomo"]

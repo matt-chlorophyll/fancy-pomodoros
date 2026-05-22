@@ -1,6 +1,7 @@
 """Typer CLI：start / report 命令。"""
 
 import random
+import sys
 import time
 from datetime import date as date_cls
 from datetime import datetime
@@ -102,7 +103,7 @@ def _countdown_loop(
                     console.bell()
                     belled = True
                 live.update(render_focus(category, task, timer, encouragement))
-                time.sleep(0.2)
+                time.sleep(0.05)
         except KeyboardInterrupt:
             return "finished"
 
@@ -158,3 +159,25 @@ def start(
 ) -> None:
     """开一次专注 session。"""
     run_session(minutes)
+
+
+def _ensure_utf8_stdio() -> None:
+    """非 UTF-8 的 Windows 控制台下把 stdout/stderr 切到 UTF-8，避免中文输出崩溃。"""
+    for name in ("stdout", "stderr"):
+        stream = getattr(sys, name, None)
+        encoding = (getattr(stream, "encoding", "") or "").lower()
+        if (
+            stream is not None
+            and hasattr(stream, "reconfigure")
+            and encoding not in ("utf-8", "utf8")
+        ):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (ValueError, OSError):
+                pass
+
+
+def main() -> None:
+    """控制台入口：先确保 UTF-8 输出，再运行 CLI。"""
+    _ensure_utf8_stdio()
+    app()
