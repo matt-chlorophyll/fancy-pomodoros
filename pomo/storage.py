@@ -23,7 +23,7 @@ def load_sessions(path: Path) -> list[Session]:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
         return [Session.from_dict(item) for item in raw.get("sessions", [])]
-    except (json.JSONDecodeError, ValueError, KeyError, TypeError, OSError):
+    except (json.JSONDecodeError, ValueError, KeyError, TypeError, OSError, AttributeError):
         return []
 
 

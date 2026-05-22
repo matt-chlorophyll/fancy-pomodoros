@@ -60,3 +60,17 @@ def test_load_unreadable_path_returns_empty(tmp_path):
     path = tmp_path / "sessions.json"
     path.mkdir()
     assert load_sessions(path) == []
+
+
+def test_load_json_array_returns_empty(tmp_path):
+    # 合法 JSON 但不是对象（数组）-> 不应崩溃。
+    path = tmp_path / "sessions.json"
+    path.write_text("[1, 2, 3]", encoding="utf-8")
+    assert load_sessions(path) == []
+
+
+def test_load_json_null_returns_empty(tmp_path):
+    # 合法 JSON 但是 null -> 不应崩溃。
+    path = tmp_path / "sessions.json"
+    path.write_text("null", encoding="utf-8")
+    assert load_sessions(path) == []

@@ -154,7 +154,7 @@ def run_session(minutes: int) -> None:
 @app.command()
 def start(
     minutes: int = typer.Option(
-        DEFAULT_FOCUS_MINUTES, "--minutes", "-m", help="本次专注目标时长（分钟）。"
+        DEFAULT_FOCUS_MINUTES, "--minutes", "-m", min=1, help="本次专注目标时长（分钟）。"
     ),
 ) -> None:
     """开一次专注 session。"""

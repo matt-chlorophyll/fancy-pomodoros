@@ -58,3 +58,9 @@ def test_report_week_flag_shows_session(monkeypatch, tmp_path):
     assert result.exit_code == 0
     assert "工作" in result.output
     assert "本周复盘" in result.output
+
+
+def test_start_rejects_non_positive_minutes(monkeypatch, tmp_path):
+    monkeypatch.setenv("POMO_DATA_DIR", str(tmp_path))
+    result = CliRunner().invoke(app, ["start", "--minutes", "0"])
+    assert result.exit_code != 0
