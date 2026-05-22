@@ -41,7 +41,7 @@ def _pick_from_list(console: Console, prompt: str, options: list[str]) -> str:
     if options:
         console.print("  [dim]或直接输入一个新的[/dim]")
     while True:
-        raw = Prompt.ask(prompt).strip()
+        raw = Prompt.ask(prompt, console=console).strip()
         if raw.isdigit() and options and 1 <= int(raw) <= len(options):
             return options[int(raw) - 1]
         if raw:
