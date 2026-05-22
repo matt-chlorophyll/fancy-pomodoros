@@ -9,7 +9,11 @@ SESSIONS_FILENAME = "sessions.json"
 
 
 def data_dir() -> Path:
-    """返回数据目录。环境变量 POMO_DATA_DIR 优先，否则用 home 下的应用目录。"""
+    """返回数据目录。
+
+    环境变量 POMO_DATA_DIR 指向非空路径时优先使用；未设置或为空字符串时，
+    回退到 home 目录下的 .fancy-pomodoro。
+    """
     override = os.environ.get("POMO_DATA_DIR")
     if override:
         return Path(override)
