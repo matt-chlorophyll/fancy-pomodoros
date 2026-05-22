@@ -66,3 +66,28 @@ def test_toggle_pause_flips_state():
     assert timer.is_paused is True
     timer.toggle_pause()
     assert timer.is_paused is False
+
+
+def test_exactly_at_target_is_overtime():
+    clock = FakeClock()
+    timer = FocusTimer(target_seconds=1500, clock=clock)
+    clock.advance(1500)
+    assert timer.phase is Phase.OVERTIME
+    assert timer.remaining() == 0.0
+    assert timer.overtime() == 0.0
+
+
+def test_multiple_pause_resume_cycles_accumulate():
+    clock = FakeClock()
+    timer = FocusTimer(target_seconds=1500, clock=clock)
+    clock.advance(100)
+    timer.pause()
+    clock.advance(200)
+    timer.resume()
+    clock.advance(100)
+    timer.pause()
+    clock.advance(300)
+    timer.resume()
+    clock.advance(50)
+    # 专注：100 + 100 + 50 = 250；暂停的 200 + 300 不计入。
+    assert timer.elapsed_focus() == 250
