@@ -37,16 +37,16 @@ def show_report(target_day: date_cls, week: bool) -> None:
 @app.command()
 def report(
     week: bool = typer.Option(False, "--week", help="查看本周（周一至周日）。"),
-    date: str = typer.Option(
+    date_str: str = typer.Option(
         None, "--date", help="查看指定日，格式 YYYY-MM-DD。"
     ),
 ) -> None:
     """查看专注复盘报表（默认今天）。"""
-    if date:
+    if date_str:
         try:
-            target = datetime.strptime(date, "%Y-%m-%d").date()
+            target = datetime.strptime(date_str, "%Y-%m-%d").date()
         except ValueError:
-            typer.echo(f"日期格式无效：{date}（应为 YYYY-MM-DD）")
+            typer.echo(f"日期格式无效：{date_str}（应为 YYYY-MM-DD）")
             raise typer.Exit(code=1)
     else:
         target = date_cls.today()
