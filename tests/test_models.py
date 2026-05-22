@@ -53,3 +53,28 @@ def test_session_create_no_overtime_when_under_target():
         target_seconds=1500,
     )
     assert s.reached_overtime is False
+
+
+def test_session_create_truncates_fractional_focus_seconds():
+    s = Session.create(
+        category="工作",
+        task="写文档",
+        started_at=datetime(2026, 5, 22, 9, 0, 0),
+        ended_at=datetime(2026, 5, 22, 9, 25, 0),
+        focus_seconds=1499.9,
+        target_seconds=1500,
+    )
+    assert s.focus_seconds == 1499
+    assert s.reached_overtime is False
+
+
+def test_session_create_id_matches_timestamp_format():
+    s = Session.create(
+        category="工作",
+        task="写文档",
+        started_at=datetime(2026, 5, 22, 9, 0, 0),
+        ended_at=datetime(2026, 5, 22, 9, 25, 0),
+        focus_seconds=1500,
+        target_seconds=1500,
+    )
+    assert re.fullmatch(r"20260522T090000-[0-9a-f]{6}", s.id)
