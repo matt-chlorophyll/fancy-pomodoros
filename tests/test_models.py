@@ -1,7 +1,7 @@
 import re
 from datetime import datetime
 
-from pomo.models import Session, new_session_id
+from pomo.models import KIND_FOCUS, KIND_REST, Session, new_session_id
 
 
 def test_session_roundtrip():
@@ -78,3 +78,57 @@ def test_session_create_id_matches_timestamp_format():
         target_seconds=1500,
     )
     assert re.fullmatch(r"20260522T090000-[0-9a-f]{6}", s.id)
+
+
+def test_session_create_defaults_to_focus_kind():
+    s = Session.create(
+        category="工作",
+        task="写文档",
+        started_at=datetime(2026, 5, 22, 9, 0, 0),
+        ended_at=datetime(2026, 5, 22, 9, 25, 0),
+        focus_seconds=1500,
+        target_seconds=1500,
+    )
+    assert s.kind == KIND_FOCUS
+
+
+def test_session_create_accepts_rest_kind():
+    s = Session.create(
+        category="休息",
+        task="休息",
+        started_at=datetime(2026, 5, 22, 9, 25, 0),
+        ended_at=datetime(2026, 5, 22, 9, 30, 0),
+        focus_seconds=300,
+        target_seconds=300,
+        kind=KIND_REST,
+    )
+    assert s.kind == KIND_REST
+
+
+def test_from_dict_defaults_kind_to_focus_for_legacy_records():
+    # 旧 JSON 没有 kind 字段时，应当被当作 focus session。
+    raw = {
+        "id": "x",
+        "category": "工作",
+        "task": "写文档",
+        "started_at": "2026-05-22T09:00:00",
+        "ended_at": "2026-05-22T09:25:00",
+        "focus_seconds": 1500,
+        "target_seconds": 1500,
+        "reached_overtime": False,
+    }
+    s = Session.from_dict(raw)
+    assert s.kind == KIND_FOCUS
+
+
+def test_to_dict_includes_kind():
+    s = Session.create(
+        category="休息",
+        task="休息",
+        started_at=datetime(2026, 5, 22, 9, 25, 0),
+        ended_at=datetime(2026, 5, 22, 9, 30, 0),
+        focus_seconds=300,
+        target_seconds=300,
+        kind=KIND_REST,
+    )
+    assert s.to_dict()["kind"] == KIND_REST

@@ -74,3 +74,39 @@ def test_load_json_null_returns_empty(tmp_path):
     path = tmp_path / "sessions.json"
     path.write_text("null", encoding="utf-8")
     assert load_sessions(path) == []
+
+
+def test_rest_session_roundtrip_preserves_kind(tmp_path):
+    path = tmp_path / "sessions.json"
+    rest = Session(
+        id="rest-1",
+        category="休息",
+        task="休息",
+        started_at="2026-05-22T09:25:00",
+        ended_at="2026-05-22T09:30:00",
+        focus_seconds=300,
+        target_seconds=300,
+        reached_overtime=True,
+        kind="rest",
+    )
+    append_session(path, rest)
+    loaded = load_sessions(path)
+    assert len(loaded) == 1
+    assert loaded[0].kind == "rest"
+
+
+def test_legacy_records_without_kind_field_load_as_focus(tmp_path):
+    # 模拟一个升级前写下的 sessions.json，条目里没有 kind 字段。
+    path = tmp_path / "sessions.json"
+    path.write_text(
+        '{"version": 1, "sessions": [{'
+        '"id": "x", "category": "工作", "task": "写文档", '
+        '"started_at": "2026-05-22T09:00:00", '
+        '"ended_at": "2026-05-22T09:25:00", '
+        '"focus_seconds": 1500, "target_seconds": 1500, '
+        '"reached_overtime": false}]}',
+        encoding="utf-8",
+    )
+    loaded = load_sessions(path)
+    assert len(loaded) == 1
+    assert loaded[0].kind == "focus"

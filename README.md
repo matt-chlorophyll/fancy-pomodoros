@@ -15,13 +15,18 @@
 ## 使用
 
     pomo                     # 开一次 25 分钟专注 session
-    pomo start --minutes 50  # 自定义本次目标时长
+    pomo start --minutes 50  # 自定义本次专注时长
+    pomo rest                # 开一次 5 分钟休息 session
+    pomo rest --minutes 10   # 自定义本次休息时长
     pomo report              # 今日复盘
     pomo report --week       # 本周复盘
     pomo report --date 2026-05-20
 
 session 进行中：`空格` 暂停 / 继续，`s` 完成并记录，`Esc` 放弃本次。
-25 分钟到点后会响一声并无缝转入加时正计时，做完按 `s` 收尾。
+到点后会响一声并无缝转入加时正计时，做完按 `s` 收尾。
+
+专注加时显示绿色（更长的专注是好事）；休息加时显示红色（该回来工作了）。
+复盘里专注和休息分块展示，专注的累计时长不包含休息。
 
 ## 数据
 

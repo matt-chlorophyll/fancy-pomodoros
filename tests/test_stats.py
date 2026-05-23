@@ -1,9 +1,11 @@
 from datetime import date
 
-from pomo.models import Session
+from pomo.models import KIND_FOCUS, KIND_REST, Session
 from pomo.stats import (
     aggregate_by_category,
+    focus_sessions,
     longest_session,
+    rest_sessions,
     sessions_in_week,
     sessions_on_date,
     total_focus_seconds,
@@ -11,7 +13,9 @@ from pomo.stats import (
 )
 
 
-def _session(task: str, category: str, day: str, focus: int) -> Session:
+def _session(
+    task: str, category: str, day: str, focus: int, kind: str = KIND_FOCUS
+) -> Session:
     return Session(
         id="id-" + task,
         category=category,
@@ -21,6 +25,7 @@ def _session(task: str, category: str, day: str, focus: int) -> Session:
         focus_seconds=focus,
         target_seconds=1500,
         reached_overtime=focus >= 1500,
+        kind=kind,
     )
 
 
@@ -77,3 +82,21 @@ def test_longest_session_returns_max_focus():
 
 def test_longest_session_of_empty_is_none():
     assert longest_session([]) is None
+
+
+def test_focus_sessions_filters_out_rest():
+    sessions = [
+        _session("a", "工作", "2026-05-22", 1500),
+        _session("rest1", "休息", "2026-05-22", 300, kind=KIND_REST),
+        _session("b", "学习", "2026-05-22", 1500),
+    ]
+    assert [s.task for s in focus_sessions(sessions)] == ["a", "b"]
+
+
+def test_rest_sessions_filters_to_rest_only():
+    sessions = [
+        _session("a", "工作", "2026-05-22", 1500),
+        _session("rest1", "休息", "2026-05-22", 300, kind=KIND_REST),
+        _session("rest2", "休息", "2026-05-22", 600, kind=KIND_REST),
+    ]
+    assert [s.task for s in rest_sessions(sessions)] == ["rest1", "rest2"]

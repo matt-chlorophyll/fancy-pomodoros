@@ -3,7 +3,17 @@
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 
-from pomo.models import Session
+from pomo.models import KIND_FOCUS, KIND_REST, Session
+
+
+def focus_sessions(sessions: list[Session]) -> list[Session]:
+    """筛出专注 session。"""
+    return [s for s in sessions if s.kind == KIND_FOCUS]
+
+
+def rest_sessions(sessions: list[Session]) -> list[Session]:
+    """筛出休息 session。"""
+    return [s for s in sessions if s.kind == KIND_REST]
 
 
 def _session_date(session: Session) -> date:

@@ -64,3 +64,16 @@ def test_start_rejects_non_positive_minutes(monkeypatch, tmp_path):
     monkeypatch.setenv("POMO_DATA_DIR", str(tmp_path))
     result = CliRunner().invoke(app, ["start", "--minutes", "0"])
     assert result.exit_code != 0
+
+
+def test_rest_rejects_non_positive_minutes(monkeypatch, tmp_path):
+    monkeypatch.setenv("POMO_DATA_DIR", str(tmp_path))
+    result = CliRunner().invoke(app, ["rest", "--minutes", "0"])
+    assert result.exit_code != 0
+
+
+def test_rest_command_is_registered():
+    # 不实际跑（避免开计时），只看 help 里有 rest 命令。
+    result = CliRunner().invoke(app, ["--help"])
+    assert result.exit_code == 0
+    assert "rest" in result.output

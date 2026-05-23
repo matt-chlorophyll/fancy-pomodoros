@@ -12,9 +12,13 @@ def new_session_id(started_at: datetime) -> str:
     return f"{started_at:%Y%m%dT%H%M%S}-{uuid4().hex[:6]}"
 
 
+KIND_FOCUS = "focus"
+KIND_REST = "rest"
+
+
 @dataclass
 class Session:
-    """一次专注 session 的记录。"""
+    """一次 session 的记录（专注或休息）。"""
 
     id: str
     category: str
@@ -24,6 +28,7 @@ class Session:
     focus_seconds: int
     target_seconds: int
     reached_overtime: bool
+    kind: str = KIND_FOCUS  # "focus" or "rest"
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -39,6 +44,7 @@ class Session:
             focus_seconds=int(raw["focus_seconds"]),
             target_seconds=int(raw["target_seconds"]),
             reached_overtime=bool(raw["reached_overtime"]),
+            kind=str(raw.get("kind", KIND_FOCUS)),
         )
 
     @classmethod
@@ -51,6 +57,7 @@ class Session:
         ended_at: datetime,
         focus_seconds: float,
         target_seconds: int,
+        kind: str = KIND_FOCUS,
     ) -> "Session":
         """从原始计时数据构造一条 Session 记录。"""
         focus = int(focus_seconds)
@@ -63,4 +70,5 @@ class Session:
             focus_seconds=focus,
             target_seconds=int(target_seconds),
             reached_overtime=focus >= int(target_seconds),
+            kind=kind,
         )

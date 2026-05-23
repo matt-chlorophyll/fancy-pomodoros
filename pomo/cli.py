@@ -1,4 +1,4 @@
-"""Typer CLI：start / report 命令。"""
+"""Typer CLI：start / rest / report 命令。"""
 
 import random
 import sys
@@ -11,22 +11,34 @@ from rich.console import Console
 from rich.live import Live
 from rich.prompt import Confirm
 
-from pomo.config import DEFAULT_FOCUS_MINUTES, sessions_file
+from pomo.config import DEFAULT_FOCUS_MINUTES, DEFAULT_REST_MINUTES, sessions_file
 from pomo.keyboard import KEY_ENTER, KEY_ESC, KEY_SPACE, read_key
-from pomo.models import Session
+from pomo.models import KIND_FOCUS, KIND_REST, Session
 from pomo.stats import (
     aggregate_by_category,
+    focus_sessions,
+    rest_sessions,
     sessions_in_week,
     sessions_on_date,
     total_focus_seconds,
 )
 from pomo.storage import append_session, load_sessions
 from pomo.timer import FocusTimer, Phase
-from pomo.ui.countdown import ENCOURAGEMENTS, render_focus, render_summary
+from pomo.ui.countdown import (
+    ENCOURAGEMENTS,
+    REST_ENCOURAGEMENTS,
+    render_focus,
+    render_rest_summary,
+    render_summary,
+)
 from pomo.ui.prompts import pick_category, pick_task, ready_ritual
 from pomo.ui.report import build_report
 
 app = typer.Typer(add_completion=False, help="Fancy Pomodoro — 专注计时与时间记录。")
+
+# 休息 session 在记录里固定的 category / task 名。
+_REST_CATEGORY = "休息"
+_REST_TASK = "休息"
 
 
 @app.callback(invoke_without_command=True)
@@ -76,11 +88,12 @@ def _countdown_loop(
     task: str,
     timer: FocusTimer,
     encouragement: str,
+    kind: str = KIND_FOCUS,
 ) -> str:
     """运行实时倒计时画面。返回 'finished' 或 'abandoned'。"""
     belled = False
     with Live(
-        render_focus(category, task, timer, encouragement),
+        render_focus(category, task, timer, encouragement, kind),
         console=console,
         transient=True,
         refresh_per_second=8,
@@ -102,7 +115,7 @@ def _countdown_loop(
                 if not belled and timer.phase is Phase.OVERTIME:
                     console.bell()
                     belled = True
-                live.update(render_focus(category, task, timer, encouragement))
+                live.update(render_focus(category, task, timer, encouragement, kind))
                 time.sleep(0.05)
         except KeyboardInterrupt:
             return "finished"
@@ -136,18 +149,57 @@ def run_session(minutes: int) -> None:
         ended_at=ended_at,
         focus_seconds=timer.elapsed_focus(),
         target_seconds=minutes * 60,
+        kind=KIND_FOCUS,
     )
     append_session(path, session)
 
-    today = sessions_on_date(load_sessions(path), started_at.date())
+    today_focus = focus_sessions(sessions_on_date(load_sessions(path), started_at.date()))
     console.print()
     console.print(
         render_summary(
             session,
-            total_focus_seconds(today),
-            aggregate_by_category(today),
+            total_focus_seconds(today_focus),
+            aggregate_by_category(today_focus),
         )
     )
+    console.print()
+
+
+def run_rest_session(minutes: int) -> None:
+    """完整跑一次休息 session：3·2·1 → 计时 → 记录 → 休息小结。"""
+    console = Console()
+    path = sessions_file()
+
+    ready_ritual(console)
+
+    started_at = datetime.now()
+    timer = FocusTimer(target_seconds=minutes * 60)
+    encouragement = random.choice(REST_ENCOURAGEMENTS)
+
+    outcome = _countdown_loop(
+        console, _REST_CATEGORY, _REST_TASK, timer, encouragement, kind=KIND_REST
+    )
+    ended_at = datetime.now()
+
+    if outcome == "abandoned":
+        console.print("[dim]已放弃本次休息，未记录。[/dim]")
+        return
+
+    session = Session.create(
+        category=_REST_CATEGORY,
+        task=_REST_TASK,
+        started_at=started_at,
+        ended_at=ended_at,
+        focus_seconds=timer.elapsed_focus(),
+        target_seconds=minutes * 60,
+        kind=KIND_REST,
+    )
+    append_session(path, session)
+
+    today_rest = rest_sessions(sessions_on_date(load_sessions(path), started_at.date()))
+    today_rest_total = sum(s.focus_seconds for s in today_rest)
+    console.print()
+    console.print(render_rest_summary(session, today_rest_total, len(today_rest)))
     console.print()
 
 
@@ -159,6 +211,16 @@ def start(
 ) -> None:
     """开一次专注 session。"""
     run_session(minutes)
+
+
+@app.command()
+def rest(
+    minutes: int = typer.Option(
+        DEFAULT_REST_MINUTES, "--minutes", "-m", min=1, help="本次休息目标时长（分钟）。"
+    ),
+) -> None:
+    """开一次休息 session。"""
+    run_rest_session(minutes)
 
 
 def _ensure_utf8_stdio() -> None:
