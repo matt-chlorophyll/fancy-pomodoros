@@ -11,7 +11,12 @@ from rich.console import Console
 from rich.live import Live
 from rich.prompt import Confirm
 
-from pomo.config import DEFAULT_FOCUS_MINUTES, DEFAULT_REST_MINUTES, sessions_file
+from pomo.config import (
+    DEFAULT_FOCUS_MINUTES,
+    DEFAULT_REST_MINUTES,
+    SUPERFOCUS_MIN_MINUTES,
+    sessions_file,
+)
 from pomo.keyboard import KEY_ENTER, KEY_ESC, KEY_SPACE, read_key
 from pomo.models import KIND_FOCUS, KIND_REST, Session
 from pomo.stats import (
@@ -89,8 +94,13 @@ def _countdown_loop(
     timer: FocusTimer,
     encouragement: str,
     kind: str = KIND_FOCUS,
+    min_focus_seconds: int = 0,
 ) -> str:
-    """运行实时倒计时画面。返回 'finished' 或 'abandoned'。"""
+    """运行实时倒计时画面。返回 'finished' 或 'abandoned'。
+
+    ``min_focus_seconds`` > 0 时，按 s/Enter 但 elapsed_focus 未达阈值，会被静默丢弃
+    （返回 'abandoned'，不弹确认框）。
+    """
     belled = False
     with Live(
         render_focus(category, task, timer, encouragement, kind),
@@ -104,6 +114,8 @@ def _countdown_loop(
                 if key == KEY_SPACE:
                     timer.toggle_pause()
                 elif key in (KEY_ENTER, "s"):
+                    if timer.elapsed_focus() < min_focus_seconds:
+                        return "abandoned"
                     return "finished"
                 elif key == KEY_ESC:
                     live.stop()
@@ -121,8 +133,11 @@ def _countdown_loop(
             return "finished"
 
 
-def run_session(minutes: int) -> None:
-    """完整跑一次专注 session：选任务 → 计时 → 记录 → 小结。"""
+def run_session(minutes: int, min_focus_seconds: int = 0) -> None:
+    """完整跑一次专注 session：选任务 → 计时 → 记录 → 小结。
+
+    ``min_focus_seconds`` > 0 时，按 s/Enter 但 focus 时长未达阈值会被静默丢弃。
+    """
     console = Console()
     path = sessions_file()
     sessions = load_sessions(path)
@@ -135,11 +150,23 @@ def run_session(minutes: int) -> None:
     timer = FocusTimer(target_seconds=minutes * 60)
     encouragement = random.choice(ENCOURAGEMENTS)
 
-    outcome = _countdown_loop(console, category, task, timer, encouragement)
+    outcome = _countdown_loop(
+        console,
+        category,
+        task,
+        timer,
+        encouragement,
+        min_focus_seconds=min_focus_seconds,
+    )
     ended_at = datetime.now()
 
     if outcome == "abandoned":
-        console.print("[dim]已放弃本次，未记录。[/dim]")
+        if min_focus_seconds > 0 and timer.elapsed_focus() < min_focus_seconds:
+            console.print(
+                f"[dim]未达 {min_focus_seconds // 60} 分钟，已丢弃本次。[/dim]"
+            )
+        else:
+            console.print("[dim]已放弃本次，未记录。[/dim]")
         return
 
     session = Session.create(
@@ -221,6 +248,19 @@ def rest(
 ) -> None:
     """开一次休息 session。"""
     run_rest_session(minutes)
+
+
+def _superfocus(
+    minutes: int = typer.Option(
+        DEFAULT_FOCUS_MINUTES, "--minutes", "-m", min=1, help="本次专注目标时长（分钟）。"
+    ),
+) -> None:
+    """开一次硬性专注 session：focus 时长不足 25 分钟会被丢弃。"""
+    run_session(minutes, min_focus_seconds=SUPERFOCUS_MIN_MINUTES * 60)
+
+
+app.command("superfocus", help=_superfocus.__doc__)(_superfocus)
+app.command("sf", help="superfocus 的简写。")(_superfocus)
 
 
 def _ensure_utf8_stdio() -> None:

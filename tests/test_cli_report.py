@@ -2,9 +2,11 @@ from datetime import datetime
 
 from typer.testing import CliRunner
 
-from pomo.cli import app
+from pomo import cli
+from pomo.cli import _countdown_loop, app
 from pomo.models import Session
 from pomo.storage import append_session
+from pomo.timer import FocusTimer
 
 
 def test_report_empty_state(monkeypatch, tmp_path):
@@ -77,3 +79,106 @@ def test_rest_command_is_registered():
     result = CliRunner().invoke(app, ["--help"])
     assert result.exit_code == 0
     assert "rest" in result.output
+
+
+def test_superfocus_commands_are_registered():
+    result = CliRunner().invoke(app, ["--help"])
+    assert result.exit_code == 0
+    assert "superfocus" in result.output
+    assert "sf" in result.output
+
+
+def test_superfocus_rejects_non_positive_minutes(monkeypatch, tmp_path):
+    monkeypatch.setenv("POMO_DATA_DIR", str(tmp_path))
+    result = CliRunner().invoke(app, ["superfocus", "--minutes", "0"])
+    assert result.exit_code != 0
+
+
+def test_sf_rejects_non_positive_minutes(monkeypatch, tmp_path):
+    monkeypatch.setenv("POMO_DATA_DIR", str(tmp_path))
+    result = CliRunner().invoke(app, ["sf", "--minutes", "0"])
+    assert result.exit_code != 0
+
+
+class _FakeClock:
+    def __init__(self) -> None:
+        self.t = 1000.0
+
+    def __call__(self) -> float:
+        return self.t
+
+    def advance(self, seconds: float) -> None:
+        self.t += seconds
+
+
+class _NullLive:
+    """旁路 rich.Live —— 测试 _countdown_loop 时只关心按键和阈值。"""
+
+    def __init__(self, *args, **kwargs) -> None:
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc) -> None:
+        return None
+
+    def start(self) -> None:
+        pass
+
+    def stop(self) -> None:
+        pass
+
+    def update(self, *args, **kwargs) -> None:
+        pass
+
+
+def _patch_read_key(monkeypatch, keys):
+    queue = list(keys)
+
+    def fake_read_key():
+        return queue.pop(0) if queue else None
+
+    monkeypatch.setattr(cli, "read_key", fake_read_key)
+
+
+def _setup_loop_env(monkeypatch, keys):
+    _patch_read_key(monkeypatch, keys)
+    monkeypatch.setattr(cli, "Live", _NullLive)
+    from rich.console import Console
+
+    return Console(quiet=True)
+
+
+def test_countdown_loop_below_threshold_returns_abandoned(monkeypatch):
+    console = _setup_loop_env(monkeypatch, ["s"])
+    clock = _FakeClock()
+    timer = FocusTimer(target_seconds=1500, clock=clock)
+    clock.advance(60)  # 才专注了 1 分钟
+
+    outcome = _countdown_loop(
+        console, "工作", "写文档", timer, "加油", min_focus_seconds=1500
+    )
+    assert outcome == "abandoned"
+
+
+def test_countdown_loop_at_threshold_returns_finished(monkeypatch):
+    console = _setup_loop_env(monkeypatch, ["s"])
+    clock = _FakeClock()
+    timer = FocusTimer(target_seconds=1500, clock=clock)
+    clock.advance(1500)  # 刚好到 25 分钟
+
+    outcome = _countdown_loop(
+        console, "工作", "写文档", timer, "加油", min_focus_seconds=1500
+    )
+    assert outcome == "finished"
+
+
+def test_countdown_loop_no_threshold_completes_immediately(monkeypatch):
+    """min_focus_seconds=0（默认）时，按 s 立刻完成，保持原有行为。"""
+    console = _setup_loop_env(monkeypatch, ["s"])
+    clock = _FakeClock()
+    timer = FocusTimer(target_seconds=1500, clock=clock)
+
+    outcome = _countdown_loop(console, "工作", "写文档", timer, "加油")
+    assert outcome == "finished"

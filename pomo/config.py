@@ -5,6 +5,7 @@ from pathlib import Path
 
 DEFAULT_FOCUS_MINUTES = 25
 DEFAULT_REST_MINUTES = 5
+SUPERFOCUS_MIN_MINUTES = 25
 APP_DIR_NAME = ".fancy-pomodoro"
 SESSIONS_FILENAME = "sessions.json"
 
