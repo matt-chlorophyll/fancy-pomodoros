@@ -15,10 +15,12 @@ from pomo.config import (
     DEFAULT_FOCUS_MINUTES,
     DEFAULT_REST_MINUTES,
     SUPERFOCUS_MIN_MINUTES,
+    ratings_file,
     sessions_file,
 )
 from pomo.keyboard import KEY_ENTER, KEY_ESC, KEY_SPACE, read_key
 from pomo.models import KIND_FOCUS, KIND_REST, Session
+from pomo.ratings import Rating, load_ratings, ratings_in_range, upsert_rating
 from pomo.stats import (
     aggregate_by_category,
     focus_sessions,
@@ -26,6 +28,7 @@ from pomo.stats import (
     sessions_in_week,
     sessions_on_date,
     total_focus_seconds,
+    week_bounds,
 )
 from pomo.storage import append_session, load_sessions
 from pomo.timer import FocusTimer, Phase
@@ -57,14 +60,18 @@ def show_report(target_day: date_cls, week: bool) -> None:
     """渲染并打印复盘报表。"""
     console = Console()
     sessions = load_sessions(sessions_file())
+    ratings = load_ratings(ratings_file())
     if week:
         scope = sessions_in_week(sessions, target_day)
+        monday, sunday = week_bounds(target_day)
+        rating_scope = ratings_in_range(ratings, monday, sunday)
         title = f"{target_day.isoformat()} 所在周  本周复盘"
     else:
         scope = sessions_on_date(sessions, target_day)
+        rating_scope = ratings_in_range(ratings, target_day, target_day)
         title = f"{target_day.isoformat()}  当日复盘"
     console.print()
-    console.print(build_report(title, scope))
+    console.print(build_report(title, scope, rating_scope))
     console.print()
 
 
@@ -261,6 +268,38 @@ def _superfocus(
 
 app.command("superfocus", help=_superfocus.__doc__)(_superfocus)
 app.command("sf", help="superfocus 的简写。")(_superfocus)
+
+
+@app.command()
+def rate(
+    score: int = typer.Option(
+        ..., "--score", "-s", min=1, max=5, help="今日整体满意度（1-5）。"
+    ),
+    comment: str = typer.Option(
+        "", "--comment", "-c", help="可选的备注，比如「今天非常 focus」。"
+    ),
+) -> None:
+    """给今天打个分。同一天再次打分会覆盖上一次。"""
+    console = Console()
+    now = datetime.now()
+    today = now.date()
+    path = ratings_file()
+
+    existing = load_ratings(path)
+    previous = next((r for r in existing if r.date == today.isoformat()), None)
+
+    rating = Rating.create(day=today, score=score, comment=comment, now=now)
+    upsert_rating(path, rating)
+
+    stars = "★" * score + "☆" * (5 - score)
+    if previous:
+        console.print(
+            f"[dim]已更新今日评分：[/dim]{stars}  ({previous.score} → {score})"
+        )
+    else:
+        console.print(f"[dim]已记录今日评分：[/dim]{stars}")
+    if comment:
+        console.print(f"[dim]备注：[/dim]{comment}")
 
 
 def _ensure_utf8_stdio() -> None:

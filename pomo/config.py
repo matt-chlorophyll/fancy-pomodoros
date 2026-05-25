@@ -8,6 +8,7 @@ DEFAULT_REST_MINUTES = 5
 SUPERFOCUS_MIN_MINUTES = 25
 APP_DIR_NAME = ".fancy-pomodoro"
 SESSIONS_FILENAME = "sessions.json"
+RATINGS_FILENAME = "ratings.json"
 
 
 def data_dir() -> Path:
@@ -25,3 +26,8 @@ def data_dir() -> Path:
 def sessions_file() -> Path:
     """返回 sessions.json 的完整路径。"""
     return data_dir() / SESSIONS_FILENAME
+
+
+def ratings_file() -> Path:
+    """返回 ratings.json 的完整路径。"""
+    return data_dir() / RATINGS_FILENAME

@@ -5,6 +5,7 @@ from typer.testing import CliRunner
 from pomo import cli
 from pomo.cli import _countdown_loop, app
 from pomo.models import Session
+from pomo.ratings import load_ratings
 from pomo.storage import append_session
 from pomo.timer import FocusTimer
 
@@ -182,3 +183,57 @@ def test_countdown_loop_no_threshold_completes_immediately(monkeypatch):
 
     outcome = _countdown_loop(console, "工作", "写文档", timer, "加油")
     assert outcome == "finished"
+
+
+def test_rate_records_score_and_comment(monkeypatch, tmp_path):
+    monkeypatch.setenv("POMO_DATA_DIR", str(tmp_path))
+    result = CliRunner().invoke(
+        app, ["rate", "--score", "4", "--comment", "今天非常focus"]
+    )
+    assert result.exit_code == 0
+    ratings = load_ratings(tmp_path / "ratings.json")
+    assert len(ratings) == 1
+    assert ratings[0].score == 4
+    assert ratings[0].comment == "今天非常focus"
+
+
+def test_rate_makes_comment_optional(monkeypatch, tmp_path):
+    monkeypatch.setenv("POMO_DATA_DIR", str(tmp_path))
+    result = CliRunner().invoke(app, ["rate", "--score", "3"])
+    assert result.exit_code == 0
+    ratings = load_ratings(tmp_path / "ratings.json")
+    assert len(ratings) == 1
+    assert ratings[0].comment == ""
+
+
+def test_rate_requires_score(monkeypatch, tmp_path):
+    monkeypatch.setenv("POMO_DATA_DIR", str(tmp_path))
+    result = CliRunner().invoke(app, ["rate"])
+    assert result.exit_code != 0
+
+
+def test_rate_rejects_score_out_of_range(monkeypatch, tmp_path):
+    monkeypatch.setenv("POMO_DATA_DIR", str(tmp_path))
+    assert CliRunner().invoke(app, ["rate", "--score", "0"]).exit_code != 0
+    assert CliRunner().invoke(app, ["rate", "--score", "6"]).exit_code != 0
+
+
+def test_rate_overwrites_same_day(monkeypatch, tmp_path):
+    monkeypatch.setenv("POMO_DATA_DIR", str(tmp_path))
+    runner = CliRunner()
+    runner.invoke(app, ["rate", "--score", "2", "--comment", "一开始"])
+    result = runner.invoke(app, ["rate", "--score", "5", "--comment", "其实挺好"])
+    assert result.exit_code == 0
+    ratings = load_ratings(tmp_path / "ratings.json")
+    assert len(ratings) == 1
+    assert ratings[0].score == 5
+    assert ratings[0].comment == "其实挺好"
+
+
+def test_report_shows_today_rating(monkeypatch, tmp_path):
+    monkeypatch.setenv("POMO_DATA_DIR", str(tmp_path))
+    CliRunner().invoke(app, ["rate", "--score", "4", "--comment", "今天还不错"])
+    result = CliRunner().invoke(app, ["report"])
+    assert result.exit_code == 0
+    assert "评分" in result.output
+    assert "今天还不错" in result.output

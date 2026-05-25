@@ -6,6 +6,7 @@ from rich.table import Table
 from rich.text import Text
 
 from pomo.models import Session
+from pomo.ratings import Rating
 from pomo.stats import (
     aggregate_by_category,
     focus_sessions,
@@ -67,15 +68,50 @@ def _build_rest_block(rest: list[Session]) -> RenderableType:
     return line
 
 
-def build_report(title: str, sessions: list[Session]) -> RenderableType:
-    """根据一组 session 构建报表面板。专注与休息分块展示。"""
+def _stars(score: int) -> str:
+    return "★" * score + "☆" * (5 - score)
+
+
+def _build_ratings_block(ratings: list[Rating]) -> RenderableType:
+    """评分区块：1 条 = 单日紧凑展示；多条 = 每天一行的小表。"""
+    pal = FOCUS
+    if len(ratings) == 1:
+        r = ratings[0]
+        line = Text()
+        line.append("评分", style=f"bold {pal.label}")
+        line.append(f"        {_stars(r.score)}", style=f"bold {pal.accent}")
+        if r.comment:
+            return Group(line, Text(f"        {r.comment}", style=pal.dim))
+        return line
+
+    header = Text("评分", style=f"bold {pal.label}")
+    grid = Table.grid(padding=(0, 2))
+    grid.add_column()  # 日期
+    grid.add_column()  # 星
+    grid.add_column()  # comment
+    for r in ratings:
+        grid.add_row(
+            Text(r.date, style=pal.dim),
+            Text(_stars(r.score), style=pal.accent),
+            Text(r.comment, style=pal.dim),
+        )
+    return Group(header, Text(""), grid)
+
+
+def build_report(
+    title: str,
+    sessions: list[Session],
+    ratings: list[Rating] | None = None,
+) -> RenderableType:
+    """根据一组 session 构建报表面板。专注与休息分块展示，可选附带评分。"""
     focus = focus_sessions(sessions)
     rest = rest_sessions(sessions)
+    ratings = ratings or []
 
     pal = FOCUS
     title_line = Text(title, style=f"bold {pal.label}")
 
-    if not focus and not rest:
+    if not focus and not rest and not ratings:
         empty = Text(
             "这段时间还没有记录。开一次 pomo 吧。",
             style=pal.dim,
@@ -87,10 +123,13 @@ def build_report(title: str, sessions: list[Session]) -> RenderableType:
     parts: list[RenderableType] = [title_line, Text("")]
     if focus:
         parts.append(_build_focus_body(focus))
-    else:
-        parts.append(Text("（今天还没有专注 session）", style=pal.dim))
+    elif rest or ratings:
+        parts.append(Text("（这段时间还没有专注 session）", style=pal.dim))
     if rest:
         parts.append(Text(""))
         parts.append(_build_rest_block(rest))
+    if ratings:
+        parts.append(Text(""))
+        parts.append(_build_ratings_block(ratings))
 
     return Panel(Group(*parts), border_style=pal.dim, padding=(1, 2), expand=False)
